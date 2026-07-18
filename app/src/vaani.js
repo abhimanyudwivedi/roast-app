@@ -13,18 +13,21 @@ const VOICE = {
   friend:        { voice_gender: "male",   primary_language: "hi" },
   maid:          { voice_gender: "female", primary_language: "hi" },
   manager:       { voice_gender: "male",   primary_language: "en" },
+  code_roast:    { voice_gender: "male",   primary_language: "en" },
 };
 const WELCOME = {
-  mother_in_law: "Aa gaye? Chalo batao, aaj kya tala.",
-  friend: "Oye, scene kya hai? Bol, kya nahi kiya aaj.",
-  maid: "Aaiye. Batayie, aaj kaunsa kaam adhoora chhoda.",
-  manager: "Good to see you. So — what did we not ship today?",
+  mother_in_law: "Toh kaise hain aap? Chalo batao, aaj kya tala.",
+  friend: "Toh kaise hain aap? Bol, kya nahi kiya aaj.",
+  maid: "Toh kaise hain aap? Batayie, aaj kaunsa kaam adhoora chhoda.",
+  manager: "Toh kaise hain aap? So — what did we not ship today?",
+  code_roast: "Toh kaise hain aap? Dikhao — aaj kya banaya, ya sirf socha?",
 };
 const AGENT_IDS = {
   mother_in_law: process.env.AGENT_MIL || "",
   friend: process.env.AGENT_FRIEND || "",
   maid: process.env.AGENT_MAID || "",
   manager: process.env.AGENT_MANAGER || "",
+  code_roast: process.env.AGENT_CODE || "",
 };
 
 // Create an agent (run once). Prompt keeps {{placeholders}} for per-call metadata.
@@ -33,7 +36,7 @@ export async function createAgent(personaId) {
   const res = await fetch(`${BASE}/create-agent`, {
     method: "POST", headers: headers(),
     body: JSON.stringify({
-      agent_display_name: `roast-${personaId}`,
+      agent_display_name: `roastcoach2-${personaId}`,
       config: { persona: { identity: { system_prompt } } },
     }),
   });

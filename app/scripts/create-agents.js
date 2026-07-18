@@ -3,7 +3,7 @@ import "dotenv/config";
 import { PERSONAS } from "../src/personas.js";
 import { createAgent } from "../src/vaani.js";
 
-const ENV_KEY = { mother_in_law: "AGENT_MIL", friend: "AGENT_FRIEND", maid: "AGENT_MAID", manager: "AGENT_MANAGER" };
+const ENV_KEY = { mother_in_law: "AGENT_MIL", friend: "AGENT_FRIEND", maid: "AGENT_MAID", manager: "AGENT_MANAGER", code_roast: "AGENT_CODE" };
 
 const out = {};
 for (const id of Object.keys(PERSONAS)) {

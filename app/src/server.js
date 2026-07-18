@@ -22,6 +22,7 @@ app.post("/api/roast/start", async (req, res) => {
     const { personaId, profile = {} } = req.body;
     const variables = {
       user_name: profile.user_name || "friend",
+      user_gender: profile.user_gender || "female",
       roast_targets: profile.roast_targets || "procrastinating",
       off_limits: profile.off_limits || "",
       goal: profile.goal || "get one thing done",

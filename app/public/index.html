@@ -35,9 +35,11 @@
       <div><label>Persona</label><select id="persona"></select></div>
       <div><label>Intensity</label>
         <select id="intensity"><option>gentle</option><option selected>medium</option><option>savage</option></select></div>
+      <div><label>You are</label>
+        <select id="gender"><option value="female" selected>Woman</option><option value="male">Man</option></select></div>
     </div>
     <div class="row">
-      <div><label>Your name</label><input id="name" value="Abhimanyu" /></div>
+      <div><label>Your name</label><input id="name" value="Aisha" /></div>
       <div><label>Roast me about</label><input id="targets" value="skipping gym, procrastinating" /></div>
     </div>
     <div class="row">
@@ -64,7 +66,8 @@ const CRISIS = /\b(kill myself|end my life|suicide|suicidal|want to die|self.?ha
 
 function profile(){ return {
   user_name:$("name").value, roast_targets:$("targets").value,
-  off_limits:$("offlimits").value, goal:$("goal").value, intensity:$("intensity").value }; }
+  off_limits:$("offlimits").value, goal:$("goal").value, intensity:$("intensity").value,
+  user_gender:$("gender").value }; }
 function setStatus(t, live){ $("status").textContent = t; $("dot").classList.toggle("live", !!live); }
 
 async function init(){
