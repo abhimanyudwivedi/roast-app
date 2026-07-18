@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Roast App — Vaani voice</title>
+<script src="https://cdn.jsdelivr.net/npm/livekit-client@2/dist/livekit-client.umd.min.js"></script>
+<style>
+  :root { --bg:#0d0d10; --card:#17171d; --line:#2a2a33; --pink:#ec4d9d; --coral:#ec5b49; --txt:#f4f4f6; --mut:#9a9aa5; --green:#34d399; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt); font:15px/1.5 -apple-system,Segoe UI,Roboto,sans-serif; }
+  .wrap { max-width:720px; margin:0 auto; padding:28px 18px; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  .sub { color:var(--mut); margin:0 0 20px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:16px; }
+  label { display:block; font-size:12px; color:var(--mut); margin:8px 0 4px; }
+  input, select { width:100%; padding:9px 11px; background:#101015; border:1px solid var(--line); border-radius:9px; color:var(--txt); }
+  .row { display:flex; gap:10px; flex-wrap:wrap; } .row > * { flex:1; min-width:140px; }
+  button { border:0; border-radius:10px; padding:11px 16px; font-weight:600; cursor:pointer; }
+  .primary { background:linear-gradient(110deg,var(--pink),#a855f7); color:#fff; }
+  .stop { background:var(--coral); color:#fff; }
+  .status { font-size:13px; color:var(--mut); margin-top:10px; min-height:20px; }
+  .cap { margin-top:12px; padding:10px 12px; background:#101015; border:1px solid var(--line); border-radius:10px; min-height:60px; font-size:14px; color:var(--txt); white-space:pre-wrap; }
+  .dot { display:inline-block; width:9px;height:9px;border-radius:50%; background:#555; margin-right:6px; vertical-align:middle; }
+  .dot.live { background:var(--green); box-shadow:0 0 8px var(--green); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Roast App <span id="mode" style="font-size:12px;color:var(--mut)"></span></h1>
+  <p class="sub">Real voice via Vaani. Set your profile, pick a roaster, hit <b>Start</b>, and talk. Allow the mic.</p>
+
+  <div class="card">
+    <div class="row">
+      <div><label>Persona</label><select id="persona"></select></div>
+      <div><label>Intensity</label>
+        <select id="intensity"><option>gentle</option><option selected>medium</option><option>savage</option></select></div>
+    </div>
+    <div class="row">
+      <div><label>Your name</label><input id="name" value="Abhimanyu" /></div>
+      <div><label>Roast me about</label><input id="targets" value="skipping gym, procrastinating" /></div>
+    </div>
+    <div class="row">
+      <div><label>Off-limits</label><input id="offlimits" value="my ex" /></div>
+      <div><label>Goal</label><input id="goal" value="be consistent for 30 days" /></div>
+    </div>
+    <div style="margin-top:12px" class="row">
+      <button class="primary" id="start">Start</button>
+      <button class="stop" id="stop">STOP</button>
+    </div>
+    <div class="status"><span class="dot" id="dot"></span><span id="status">idle</span></div>
+  </div>
+
+  <div class="card">
+    <label>Live captions</label>
+    <div class="cap" id="cap">—</div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let room = null, capSock = null;
+const CRISIS = /\b(kill myself|end my life|suicide|suicidal|want to die|self.?harm|hurt myself|marna chahta|jeena nahi|khudkushi)\b/i;
+
+function profile(){ return {
+  user_name:$("name").value, roast_targets:$("targets").value,
+  off_limits:$("offlimits").value, goal:$("goal").value, intensity:$("intensity").value }; }
+function setStatus(t, live){ $("status").textContent = t; $("dot").classList.toggle("live", !!live); }
+
+async function init(){
+  const list = await fetch("/api/personas").then(r=>r.json());
+  $("persona").innerHTML = list.map(p => `<option value="${p.id}">${p.name} — ${p.filter}</option>`).join("");
+}
+
+$("start").onclick = async () => {
+  await stop();
+  setStatus("connecting…");
+  const r = await fetch("/api/roast/start", { method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ personaId:$("persona").value, profile:profile() }) }).then(r=>r.json());
+  if (!r.ok){ setStatus("error: " + r.error); return; }
+  $("mode").textContent = r.mock ? "· mock" : "· LIVE (Vaani WebRTC)";
+  if (r.mock){ setStatus("mock mode — no live voice. Set MOCK_MODE=false + agent ids in .env."); return; }
+
+  try {
+    room = new LivekitClient.Room({ adaptiveStream:true, dynacast:true });
+    room.on(LivekitClient.RoomEvent.TrackSubscribed, (track) => {
+      if (track.kind === "audio"){ const el = track.attach(); el.autoplay = true; document.body.appendChild(el); }
+    });
+    room.on(LivekitClient.RoomEvent.Disconnected, () => setStatus("call ended"));
+    await room.connect(r.connection_url, r.token);
+    await room.localParticipant.setMicrophoneEnabled(true);
+    setStatus("live — talk to your roaster", true);
+    connectCaptions(r.live_captions_url);
+  } catch (e){ setStatus("connect failed: " + e.message); }
+};
+
+function connectCaptions(url){
+  if (!url) return;
+  try {
+    capSock = new WebSocket(url);
+    capSock.onmessage = (m) => {
+      let text = m.data;
+      try { const j = JSON.parse(m.data); text = j.text || j.transcript || j.caption || JSON.stringify(j); } catch {}
+      $("cap").textContent = (String(text) + "\n" + $("cap").textContent).slice(0, 1200);
+      if (CRISIS.test(String(text))){                     // client-side layer-2 backstop
+        setStatus("crisis detected — ending & showing help");
+        stop();
+        $("cap").textContent = "You matter, and you're not alone. Tele-MANAS 14416 · iCall 9152987821 · Vandrevala 1860-2662-345\n\n" + $("cap").textContent;
+      }
+    };
+  } catch {}
+}
+
+async function stop(){
+  try { if (capSock) capSock.close(); } catch {}
+  try { if (room) await room.disconnect(); } catch {}
+  room = null; capSock = null; setStatus("idle");
+}
+$("stop").onclick = stop;
+init();
+</script>
+</body>
+</html>
